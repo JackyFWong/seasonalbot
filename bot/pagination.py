@@ -6,13 +6,15 @@ from discord import Embed, Member, Reaction
 from discord.abc import User
 from discord.ext.commands import Context, Paginator
 
+from bot.constants import Emojis
+
 FIRST_EMOJI = "\u23EE"   # [:track_previous:]
 LEFT_EMOJI = "\u2B05"    # [:arrow_left:]
 RIGHT_EMOJI = "\u27A1"   # [:arrow_right:]
 LAST_EMOJI = "\u23ED"    # [:track_next:]
-DELETE_EMOJI = "\u274c"  # [:x:]
+DELETE_EMOJI = Emojis.trashcan  # [:trashcan:]
 
-PAGINATION_EMOJI = [FIRST_EMOJI, LEFT_EMOJI, RIGHT_EMOJI, LAST_EMOJI, DELETE_EMOJI]
+PAGINATION_EMOJI = (FIRST_EMOJI, LEFT_EMOJI, RIGHT_EMOJI, LAST_EMOJI, DELETE_EMOJI)
 
 log = logging.getLogger(__name__)
 
@@ -22,28 +24,17 @@ class EmptyPaginatorEmbed(Exception):
 
 
 class LinePaginator(Paginator):
-    """
-    A class that aids in paginating code blocks for Discord messages.
+    """A class that aids in paginating code blocks for Discord messages."""
 
-    Attributes
-    -----------
-    prefix: :class:`str`
-        The prefix inserted to every page. e.g. three backticks.
-    suffix: :class:`str`
-        The suffix appended at the end of every page. e.g. three backticks.
-    max_size: :class:`int`
-        The maximum amount of codepoints allowed in a page.
-    max_lines: :class:`int`
-        The maximum amount of lines allowed in a page.
-    """
-
-    def __init__(self, prefix='```', suffix='```', max_size=2000, max_lines=None):
+    def __init__(self, prefix: str = '```', suffix: str = '```', max_size: int = 2000, max_lines: int = None):
         """
         Overrides the Paginator.__init__ from inside discord.ext.commands.
 
-        Allows for configuration of the maximum number of lines per page.
-        """
+        `prefix` and `suffix` will be prepended and appended respectively to every page.
 
+        `max_size` and `max_lines` denote the maximum amount of codepoints and lines
+        allowed per page.
+        """
         self.prefix = prefix
         self.suffix = suffix
         self.max_size = max_size - len(suffix)
@@ -53,28 +44,17 @@ class LinePaginator(Paginator):
         self._count = len(prefix) + 1  # prefix + newline
         self._pages = []
 
-    def add_line(self, line='', *, empty=False):
+    def add_line(self, line: str = '', *, empty: bool = False) -> None:
         """
         Adds a line to the current page.
 
-        If the line exceeds the `max_size` then an exception is raised.
+        If the line exceeds the `max_size` then a RuntimeError is raised.
 
         Overrides the Paginator.add_line from inside discord.ext.commands in order to allow
         configuration of the maximum number of lines per page.
 
-        Parameters
-        -----------
-        line: str
-            The line to add.
-        empty: bool
-            Indicates if another empty line should be added.
-
-        Raises
-        ------
-        RuntimeError
-            The line was too big for the current `max_size`.
+        If `empty` is True, an empty line will be placed after the a given `line`.
         """
-
         if len(line) > self.max_size - len(self.prefix) - 2:
             raise RuntimeError('Line exceeds maximum page size %s' % (self.max_size - len(self.prefix) - 2))
 
@@ -107,7 +87,11 @@ class LinePaginator(Paginator):
 
         When used, this will send a message using `ctx.send()` and apply a set of reactions to it.
         These reactions may be used to change page, or to remove pagination from the message.
-        Pagination will also be removed automatically if no reaction is added for five minutes (300 seconds).
+
+        Pagination will also be removed automatically if no reaction is added for `timeout` seconds,
+        defaulting to five minutes (300 seconds).
+
+        If `empty` is True, an empty line will be placed between each given line.
 
         >>> embed = Embed()
         >>> embed.set_author(name="Some Operation", url=url, icon_url=icon)
@@ -115,25 +99,9 @@ class LinePaginator(Paginator):
         ...     (line for line in lines),
         ...     ctx, embed
         ... )
-
-        :param lines: The lines to be paginated
-        :param ctx: Current context object
-        :param embed: A pre-configured embed to be used as a template for each page
-        :param prefix: Text to place before each page
-        :param suffix: Text to place after each page
-        :param max_lines: The maximum number of lines on each page
-        :param max_size: The maximum number of characters on each page
-        :param empty: Whether to place an empty line between each given line
-        :param restrict_to_user: A user to lock pagination operations to for this message, if supplied
-        :param exception_on_empty_embed: Should there be an exception if the embed is empty?
-        :param url: the url to use for the embed headline
-        :param timeout: The amount of time in seconds to disable pagination of no reaction is added
-        :param footer_text: Text to prefix the page number in the footer with
         """
-
-        def event_check(reaction_: Reaction, user_: Member):
+        def event_check(reaction_: Reaction, user_: Member) -> bool:
             """Make sure that this reaction is what we want to operate on."""
-
             no_restrictions = (
                 # Pagination is not restricted
                 not restrict_to_user
@@ -147,7 +115,7 @@ class LinePaginator(Paginator):
                     # Reaction is on this message
                     reaction_.message.id == message.id,
                     # Reaction is one of the pagination emotes
-                    reaction_.emoji in PAGINATION_EMOJI,
+                    str(reaction_.emoji) in PAGINATION_EMOJI,  # Note: DELETE_EMOJI is a string and not unicode
                     # Reaction was not made by the Bot
                     user_.id != ctx.bot.user.id,
                     # There were no restrictions
@@ -219,9 +187,9 @@ class LinePaginator(Paginator):
                 log.debug("Timed out waiting for a reaction")
                 break  # We're done, no reactions for the last 5 minutes
 
-            if reaction.emoji == DELETE_EMOJI:
+            if str(reaction.emoji) == DELETE_EMOJI:  # Note: DELETE_EMOJI is a string and not unicode
                 log.debug("Got delete reaction")
-                break
+                return await message.delete()
 
             if reaction.emoji == FIRST_EMOJI:
                 await message.remove_reaction(reaction.emoji, user)
@@ -295,7 +263,7 @@ class LinePaginator(Paginator):
 
                 await message.edit(embed=embed)
 
-        log.debug("Ending pagination and removing all reactions...")
+        log.debug("Ending pagination and clearing reactions...")
         await message.clear_reactions()
 
 
@@ -308,7 +276,7 @@ class ImagePaginator(Paginator):
     Refer to ImagePaginator.paginate for documentation on how to use.
     """
 
-    def __init__(self, prefix="", suffix=""):
+    def __init__(self, prefix: str = "", suffix: str = ""):
         super().__init__(prefix, suffix)
         self._current_page = [prefix]
         self.images = []
@@ -318,10 +286,8 @@ class ImagePaginator(Paginator):
         """
         Adds a line to each page, usually just 1 line in this context.
 
-        :param line: str to be page content / title
-        :param empty: if there should be new lines between entries
+        If `empty` is True, an empty line will be placed after a given `line`.
         """
-
         if line:
             self._count = len(line)
         else:
@@ -330,12 +296,7 @@ class ImagePaginator(Paginator):
         self.close_page()
 
     def add_image(self, image: str = None) -> None:
-        """
-        Adds an image to a page.
-
-        :param image: image url to be appended
-        """
-
+        """Adds an image to a page given the url."""
         self.images.append(image)
 
     @classmethod
@@ -345,40 +306,26 @@ class ImagePaginator(Paginator):
         """
         Use a paginator and set of reactions to provide pagination over a set of title/image pairs.
 
-        The reactions are used to switch page, or to finish with pagination.
+        `pages` is a list of tuples of page title/image url pairs.
+        `prefix` and `suffix` will be prepended and appended respectively to the message.
 
         When used, this will send a message using `ctx.send()` and apply a set of reactions to it.
         These reactions may be used to change page, or to remove pagination from the message.
 
-        Note: Pagination will be removed automatically if no reaction is added for five minutes (300 seconds).
+        Note: Pagination will be removed automatically if no reaction is added for `timeout` seconds,
+              defaulting to five minutes (300 seconds).
 
         >>> embed = Embed()
         >>> embed.set_author(name="Some Operation", url=url, icon_url=icon)
         >>> await ImagePaginator.paginate(pages, ctx, embed)
-
-        Parameters
-        -----------
-        :param pages: An iterable of tuples with title for page, and img url
-        :param ctx: ctx for message
-        :param embed: base embed to modify
-        :param prefix: prefix of message
-        :param suffix: suffix of message
-        :param timeout: timeout for when reactions get auto-removed
         """
-
         def check_event(reaction_: Reaction, member: Member) -> bool:
-            """
-            Checks each reaction added, if it matches our conditions pass the wait_for.
-
-            :param reaction_: reaction added
-            :param member: reaction added by member
-            """
-
+            """Checks each reaction added, if it matches our conditions pass the wait_for."""
             return all((
                 # Reaction is on the same message sent
                 reaction_.message.id == message.id,
                 # The reaction is part of the navigation menu
-                reaction_.emoji in PAGINATION_EMOJI,
+                str(reaction_.emoji) in PAGINATION_EMOJI,  # Note: DELETE_EMOJI is a string and not unicode
                 # The reactor is not a bot
                 not member.bot
             ))
@@ -424,10 +371,10 @@ class ImagePaginator(Paginator):
             # Deletes the users reaction
             await message.remove_reaction(reaction.emoji, user)
 
-            # Delete reaction press - [:x:]
-            if reaction.emoji == DELETE_EMOJI:
+            # Delete reaction press - [:trashcan:]
+            if str(reaction.emoji) == DELETE_EMOJI:  # Note: DELETE_EMOJI is a string and not unicode
                 log.debug("Got delete reaction")
-                break
+                return await message.delete()
 
             # First reaction press - [:track_previous:]
             if reaction.emoji == FIRST_EMOJI:
@@ -444,7 +391,7 @@ class ImagePaginator(Paginator):
                     log.debug("Got last page reaction, but we're on the last page - ignoring")
                     continue
 
-                current_page = len(paginator.pages - 1)
+                current_page = len(paginator.pages) - 1
                 reaction_type = "last"
 
             # Previous reaction press - [:arrow_left: ]
@@ -479,5 +426,5 @@ class ImagePaginator(Paginator):
 
             await message.edit(embed=embed)
 
-        log.debug("Ending pagination and removing all reactions...")
+        log.debug("Ending pagination and clearing reactions...")
         await message.clear_reactions()

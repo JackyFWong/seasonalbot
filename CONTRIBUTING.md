@@ -13,6 +13,7 @@ Note that contributions may be rejected on the basis of a contributor failing to
 3. **No force-pushes** or modifying the Git history in any way.
 4. If you have direct access to the repository, **create a branch for your changes** and create a pull request for that branch. If not, create a branch on a fork of the repository and create a pull request from there.
     * It's common practice for a repository to reject direct pushes to `master`, so make branching a habit!
+    * If PRing from your own fork, **ensure that "Allow edits from maintainers" is checked**. This gives permission for maintainers to commit changes directly to your fork, speeding up the review process.
 5. **Adhere to the prevailing code style**, which we enforce using [flake8](http://flake8.pycqa.org/en/latest/index.html).
     * Run `flake8` against your code **before** you push it. Your commit will be rejected by the build server if it fails to lint.
     * [Git Hooks](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) are a powerful tool that can be a daunting to set up. Fortunately, [`pre-commit`](https://github.com/pre-commit/pre-commit) abstracts this process away from you and is provided as a dev dependency for this project. Run `pipenv run precommit` when setting up the project and you'll never have to worry about breaking the build for linting errors.
@@ -44,7 +45,7 @@ Seasonalbot utilizes [Pipenv](https://pipenv.readthedocs.io/en/latest/) for inst
 When pulling down changes from GitHub, remember to sync your environment using `pipenv sync --dev` to ensure you're using the most up-to-date versions the project's dependencies.
 
 ### Type Hinting
-[PEP 484](https://www.python.org/dev/peps/pep-0484/) formally specifies type hints for Python functions, added to the Python Standard Library in version 3.5. Type hints are recognized by most modern code editing tools and provide useful insight into both the input and output types of a function, preventing the user from having to go through the codebase to determine these types. 
+[PEP 484](https://www.python.org/dev/peps/pep-0484/) formally specifies type hints for Python functions, added to the Python Standard Library in version 3.5. Type hints are recognized by most modern code editing tools and provide useful insight into both the input and output types of a function, preventing the user from having to go through the codebase to determine these types.
 
 For example:
 
@@ -85,7 +86,7 @@ def foo(bar: int, baz: dict=None) -> bool:
     Does some things with some stuff.
 
     This function takes an index, `bar` and checks for its presence in the database `baz`, passed as a dictionary.
-    
+
     Returns `False` if `baz` is not passed.
     """
 ```
@@ -103,6 +104,8 @@ The project currently defines [`logging`](https://docs.python.org/3/library/logg
 Github [has introduced a new PR feature](https://github.blog/2019-02-14-introducing-draft-pull-requests/) that allows the PR author to mark it as a WIP. This provides both a visual and functional indicator that the contents of the PR are in a draft state and not yet ready for formal review.
 
 This feature should be utilized in place of the traditional method of prepending `[WIP]` to the PR title.
+
+As stated earlier, **ensure that "Allow edits from maintainers" is checked**. This gives permission for maintainers to commit changes directly to your fork, speeding up the review process.
 
 ## Footnotes
 
